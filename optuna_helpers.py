@@ -1,102 +1,95 @@
 import argparse
+from typing import Any, List
 
 import optuna
 import pytorch_lightning as pl
+from pytorch_lightning import callbacks
 
 
-class OptunaArg():
-
-    def __init__(self, val):
+class OptunaArg:
+    def __init__(self, value: Any):
         try:
-            self.val = int(val)
+            self.value = int(value)
         except ValueError:
             try:
-                self.val = float(val)
+                self.value = float(value)
             except ValueError:
-                self.val = val
-
+                self.value = value
 
     def __str__(self):
-        return str(self.val)
+        return str(self.value)
 
     def __repr__(self):
-        return str(self.val)
+        return str(self.value)
 
     @staticmethod
-    def parse(trial, key, args):
-        error_msg = 'invalid number of arguments for `{}`, expected {}, got {}'
-        param = args[-1].val
-        args = [arg.val for arg in args[:-1]]
-        if param == 'categorical':
-            return trial.suggest_categorical(key, args)
-        elif param == 'int':
-            if len(args) == 1:
-                return args[0]
-            assert len(args) == 2, error_msg.format(
-                'suggest_int', 2, len(args)
-            )
-            return trial.suggest_int(key, *args)
-        elif param == 'uniform':
-            if len(args) == 1:
-                return args[0]
-            assert len(args) == 2, error_msg.format(
-                'suggest_uniform', 2, len(args)
-            )
-            return trial.suggest_uniform(key, *args)
-        elif param == 'loguniform':
-            if len(args) == 1:
-                return args[0]
-            assert len(args) == 2, error_msg.format(
-                'suggest_loguniform', 2, len(args)
-            )
-            return trial.suggest_loguniform(key, *args)
-        elif param == 'discrete_uniform':
-            if len(args) == 1:
-                return args[0]
-            assert len(args) == 2, error_msg.format(
-                'suggest_discrete_uniform', 3, len(args)
-            )
-            return trial.suggest_discrete_uniform(key, *args)
+    def parse(trial: optuna.Trial, key: str, args: List["OptunaArg"]):
+        values = [arg.value for arg in args]
+        param, *values = values
+        if param == "categorical":
+            func = trial.suggest_categorical
+        elif param == "int":
+            func = trial.suggest_int
+        elif param == "uniform":
+            func = trial.suggest_uniform
+        elif param == "loguniform":
+            func = trial.suggest_loguniform
+        elif param == "discrete_uniform":
+            func = trial.suggest_discrete_uniform
         else:
             raise ValueError(
-                'invalid optuna parameter type, expected one of '
-                '{categorical, int, uniform, loguniform, discrete_uniform}, '
-                f'got {param}'
+                "invalid optuna parameter type, expected one of "
+                "{categorical, int, uniform, loguniform, discrete_uniform}, "
+                f"got {param}"
             )
+        func(key, *values)
+
+    @staticmethod
+    def parse_optuna_args(trial: optuna.Trial, args: argparse.Namespace):
+        args = argparse.Namespace(**vars(args))
+        args_dict = vars(args)
+        for key, args_list in args_dict.items():
+            if isinstance(args_list, list):
+                if args_list and all(isinstance(arg, OptunaArg) for arg in args_list):
+                    sampled_arg = OptunaArg.parse(trial, key, args_list)
+                    args_dict[key] = sampled_arg
+        return args
 
 
-def parse_optuna_args(trial, args):
-    args = argparse.Namespace(**vars(args))
-    args_dict = vars(args)
-    for key, args_list in args_dict.items():
-        if isinstance(args_list, list):
-            if args_list and all(isinstance(arg, OptunaArg) for arg in args_list):
-                sampled_arg = OptunaArg.parse(trial, key, args_list)
-                args_dict[key] = sampled_arg
-    return args
-
-
-class PyTorchLightningPruningCallback(pl.callbacks.EarlyStopping):
-
-    def __init__(self, trial, monitor='val_loss', min_delta=0.0,
-                 patience=3, verbose=False, mode='auto', strict=True,
-                 **kwargs):
+class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
+    def __init__(
+        self,
+        trial: optuna.Trial,
+        monitor: str = "val_loss",
+        min_delta: float = 0.0,
+        patience: int = 3,
+        verbose: bool = False,
+        mode: str = "auto",
+        strict: bool = True,
+        **kwargs,
+    ):
         super(PyTorchLightningPruningCallback, self).__init__(
-            monitor=monitor, min_delta=min_delta, patience=patience,
-            verbose=verbose, mode=mode, strict=strict
+            monitor=monitor,
+            min_delta=min_delta,
+            patience=patience,
+            verbose=verbose,
+            mode=mode,
+            strict=strict,
+            **kwargs,
         )
 
         self.trial = trial
         self.monitor = monitor
 
-    def on_epoch_end(self, trainer, pl_module):
+    def on_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         stop_training = super().on_epoch_end(trainer, pl_module)
 
         epoch = trainer.current_epoch
         logs = trainer.callback_metrics
         current_score = logs.get(self.monitor)
-        self.trial.report(current_score, step=epoch)
-        if self.trial.should_prune():
-            message = "Trial was pruned at epoch {}.".format(epoch)
-            raise optuna.exceptions.TrialPruned(message)
+        if isinstance(current_score, float):
+            self.trial.report(current_score, step=epoch)
+            if self.trial.should_prune():
+                message = "Trial was pruned at epoch {}.".format(epoch)
+                raise optuna.exceptions.TrialPruned(message)
         return stop_training

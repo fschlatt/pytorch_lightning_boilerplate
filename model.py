@@ -2,17 +2,25 @@ import argparse
 
 import optuna_helpers
 import pytorch_lightning as pl
+import torch.utils.data
 import torch
 
 
 class Model(pl.LightningModule):
-
-    def __init__(self, hparams):
+    def __init__(self, args: argparse.Namespace):
         super(Model).__init__()
-        self.hparams = hparams
-        torch.manual_seed(hparams.seed)
+        self.save_hyperparameters(args)
 
-    def forward(self, inp):
+    def load_train_data(self):
+        self.train_data = None
+
+    def load_val_data(self):
+        self.val_data = None
+
+    def load_test_data(self):
+        self.test_data = None
+
+    def forward(self, inp: torch.Tensor):
         raise NotImplementedError()
 
     def training_step(self, data_batch, batch_i):
@@ -38,25 +46,21 @@ class Model(pl.LightningModule):
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
-            self.train_data, self.hparams.batch_size, shuffle=True
+            self.train_data, self.hparams.batch_size, shuffle=self.hparams.shuffle
         )
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.val_data, self.hparams.val_batch_size
-        )
+        return torch.utils.data.DataLoader(self.val_data, self.hparams.val_batch_size)
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.test_data, self.hparams.test_batch_size
-        )
+        return torch.utils.data.DataLoader(self.test_data, self.hparams.test_batch_size)
 
     @staticmethod
     def add_model_specific_args(parser):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
 
         parser.add_argument(
-            '--lr', type=optuna_helpers.OptunaArg, nargs='+', default=1e-3
+            "--lr", type=optuna_helpers.OptunaArg, nargs="+", default=1e-3
         )
 
         return parser
