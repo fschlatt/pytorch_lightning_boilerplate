@@ -41,20 +41,6 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         return [torch.optim.Adam(self.parameters(), lr=self.hparams.lr)]
 
-    def prepare_data(self):
-        self.train_data = self.val_data = self.test = None
-
-    def train_dataloader(self):
-        return torch.utils.data.DataLoader(
-            self.train_data, self.hparams.batch_size, shuffle=self.hparams.shuffle
-        )
-
-    def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.val_data, self.hparams.val_batch_size)
-
-    def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_data, self.hparams.test_batch_size)
-
     @classmethod
     def add_model_specific_args(cls, parser: argparse.ArgumentParser):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
