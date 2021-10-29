@@ -6,6 +6,7 @@ from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning.utilities import argparse as pl_argparse_utils
 
 import optuna_helpers
+import util
 from data import Dataset
 from model import Model
 
@@ -16,10 +17,36 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     kwargs = vars(args)
 
     checkpoint = pl_callbacks.ModelCheckpoint(
-        monitor=args.monitor, save_last=args.save_last
+        dirpath=args.dir_path,
+        filename=args.file_name,
+        monitor=args.monitor,
+        verbose=args.verbose,
+        save_last=args.save_last,
+        save_top_k=args.save_top_k,
+        save_weights_only=args.save_weights_only,
+        mode=args.mode,
+        auto_insert_metric_name=args.auto_insert_metric_name,
+        every_n_train_steps=args.every_n_train_steps,
+        train_time_interval=args.train_time_interval,
+        every_n_epochs=args.every_n_epochs,
+        save_on_train_epoch_end=args.save_on_train_epoch_end,
+        period=args.period,
+        every_n_val_epochs=args.every_n_val_epochs,
     )
 
-    early_stop = optuna_helpers.PyTorchLightningPruningCallback(trial, **kwargs)
+    early_stop = optuna_helpers.PyTorchLightningPruningCallback(
+        trial,
+        monitor=args.monitor,
+        min_delta=args.min_delta,
+        patience=args.patience,
+        verbose=args.verbose,
+        mode=args.mode,
+        strict=args.strict,
+        check_finite=args.check_finite,
+        stopping_threshold=args.stopping_threshold,
+        divergence_threshold=args.divergence_threshold,
+        check_on_train_epoch_end=args.check_on_train_epoch_end,
+    )
     callbacks = [early_stop, checkpoint]
     kwargs["callbacks"] = callbacks
 
@@ -31,23 +58,74 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     return early_stop.best_score
 
 
-def main():
-
+def create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
-    def str_to_bool(string: str):
-        return str(string).lower() in ("true", "1", "y", "yes")
-
-    group = parser.add_argument_group("optuna.Study")
-    group.add_argument("--n_trials", type=int, default=1)
-    group.add_argument("--pruning", type=str_to_bool, default=True)
-    group.add_argument("--timeout", type=int, default=None)
+    conflict_tracker = util.ArgumentConflictSolver()
+    argparse._ActionsContainer.add_argument = conflict_tracker.catch_conflicting_args(
+        argparse._ActionsContainer.add_argument
+    )
 
     parser = pl.Trainer.add_argparse_args(parser)
     parser = pl_argparse_utils.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
+    parser = pl_argparse_utils.add_argparse_args(pl_callbacks.EarlyStopping, parser)
     parser = Model.add_model_specific_args(parser)
     parser = Dataset.add_argparse_args(parser)
 
+    group = parser.add_argument_group("Optuna")
+    group.add_argument(
+        "--n_trials",
+        type=int,
+        default=1,
+        help=(
+            "The number of trials. If this argument is set to None, there is no"
+            " limitation on the number of trials. If timeout is also set to None, the"
+            " study continues to create trials until it receives a termination signal"
+            " such as Ctrl+C or SIGTERM, default 1"
+        ),
+    )
+    parser.add_argument(
+        "--pruning",
+        dest="pruning",
+        action="store_true",
+        help="if true activates experiment pruning, default false",
+    )
+    group.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help=(
+            "Stop study after the given number of second(s). If this argument is set"
+            "to None, the study is executed without time limitation. If n_trials is"
+            " also set to None, the study continues to create trials until it receives"
+            " a termination signal such as Ctrl+C or SIGTERM, default None"
+        ),
+    )
+
+    group = parser.add_argument_group("Global")
+    conflict_tracker.resolve_conflicting_args(
+        group,
+        {
+            "--monitor": "quantity to monitor for early stopping and checkpointing",
+            "--verbose": "verbosity mode, default False",
+            "--mode": (
+                "one of {min, max}, dictates if early stopping and checkpointing "
+                "considers maximum or minimum of monitored quantity"
+            ),
+        },
+    )
+    for option_string, actions in conflict_tracker.conflicting_args.items():
+        if option_string not in parser._option_string_actions:
+            raise argparse.ArgumentError(
+                actions.pop(), "missing global argument for conflicting argument"
+            )
+
+    return parser
+
+
+def main():
+
+    parser = create_argument_parser()
     args = parser.parse_args()
 
     pruner = (

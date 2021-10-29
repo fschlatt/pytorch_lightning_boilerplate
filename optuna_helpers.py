@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, List
+from typing import Any, List, Optional
 
 import optuna
 import pytorch_lightning as pl
@@ -60,13 +60,16 @@ class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
     def __init__(
         self,
         trial: optuna.Trial,
-        monitor: str = "val_loss",
+        monitor: Optional[str] = None,
         min_delta: float = 0.0,
         patience: int = 3,
         verbose: bool = False,
-        mode: str = "auto",
+        mode: str = "min",
         strict: bool = True,
-        **kwargs,
+        check_finite: bool = True,
+        stopping_threshold: Optional[float] = None,
+        divergence_threshold: Optional[float] = None,
+        check_on_train_epoch_end: Optional[bool] = None,
     ):
         super(PyTorchLightningPruningCallback, self).__init__(
             monitor=monitor,
@@ -75,7 +78,10 @@ class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
             verbose=verbose,
             mode=mode,
             strict=strict,
-            **kwargs,
+            check_finite=check_finite,
+            stopping_threshold=stopping_threshold,
+            divergence_threshold=divergence_threshold,
+            check_on_train_epoch_end=check_on_train_epoch_end,
         )
 
         self.trial = trial
