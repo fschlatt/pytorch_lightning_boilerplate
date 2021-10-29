@@ -1,8 +1,12 @@
 import argparse
 
 import optuna
-import optuna_helpers
 import pytorch_lightning as pl
+from pytorch_lightning import callbacks as pl_callbacks
+from pytorch_lightning.utilities import argparse as pl_argparse_utils
+
+import optuna_helpers
+from data import Dataset
 from model import Model
 
 
@@ -11,8 +15,13 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     args = optuna_helpers.OptunaArg.parse_optuna_args(trial, args)
     kwargs = vars(args)
 
+    checkpoint = pl_callbacks.ModelCheckpoint(
+        monitor=args.monitor, save_last=args.save_last
+    )
+
     early_stop = optuna_helpers.PyTorchLightningPruningCallback(trial, **kwargs)
-    kwargs["early_stop_callback"] = early_stop
+    callbacks = [early_stop, checkpoint]
+    kwargs["callbacks"] = callbacks
 
     trainer = pl.Trainer(**kwargs)
     model = Model(args)
@@ -29,14 +38,15 @@ def main():
     def str_to_bool(string: str):
         return str(string).lower() in ("true", "1", "y", "yes")
 
-    parser.add_argument("--direction", type=int, default="minimize")
-    parser.add_argument("--n_trials", type=int, default=1)
-    parser.add_argument("--pruning", type=str_to_bool, default=True)
-    parser.add_argument("--shuffle", type=str_to_bool, default=True)
-    parser.add_argument("--timeout", type=int, default=None)
+    group = parser.add_argument_group("optuna.Study")
+    group.add_argument("--n_trials", type=int, default=1)
+    group.add_argument("--pruning", type=str_to_bool, default=True)
+    group.add_argument("--timeout", type=int, default=None)
 
     parser = pl.Trainer.add_argparse_args(parser)
+    parser = pl_argparse_utils.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
     parser = Model.add_model_specific_args(parser)
+    parser = Dataset.add_argparse_args(parser)
 
     args = parser.parse_args()
 

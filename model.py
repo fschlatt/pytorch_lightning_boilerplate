@@ -55,11 +55,13 @@ class Model(pl.LightningModule):
     def test_dataloader(self):
         return torch.utils.data.DataLoader(self.test_data, self.hparams.test_batch_size)
 
-    @staticmethod
-    def add_model_specific_args(parser):
+    @classmethod
+    def add_model_specific_args(cls, parser: argparse.ArgumentParser):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
 
-        parser.add_argument(
+        group = parser.add_argument_group(f"{cls.__module__}.{cls.__qualname__}")
+
+        group.add_argument(
             "--lr", type=optuna_helpers.OptunaArg, nargs="+", default=1e-3
         )
 
