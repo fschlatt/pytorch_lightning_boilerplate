@@ -50,10 +50,11 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     callbacks = [early_stop, checkpoint]
     kwargs["callbacks"] = callbacks
 
-    trainer = pl.Trainer(**kwargs)
+    trainer = pl.Trainer.from_argparse_args(**kwargs)
     model = Model(args)
+    dataset = Dataset(**kwargs)
 
-    trainer.fit(model)
+    trainer.fit(model, datamodule=dataset)
 
     return early_stop.best_score
 
