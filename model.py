@@ -11,15 +11,6 @@ class Model(pl.LightningModule):
         super(Model).__init__()
         self.save_hyperparameters(args)
 
-    def load_train_data(self):
-        self.train_data = None
-
-    def load_val_data(self):
-        self.val_data = None
-
-    def load_test_data(self):
-        self.test_data = None
-
     def forward(self, inp: torch.Tensor):
         raise NotImplementedError()
 
