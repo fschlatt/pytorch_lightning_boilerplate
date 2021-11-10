@@ -133,7 +133,9 @@ def main():
         optuna.pruners.MedianPruner() if args.pruning else optuna.pruners.NopPruner()
     )
 
-    study = optuna.create_study(direction=args.direction, pruner=pruner)
+    study = optuna.create_study(
+        direction="maximum" if args.mode == "max" else "min", pruner=pruner
+    )
     study.optimize(
         lambda trial: objective(trial, args),
         n_trials=args.n_trials,
