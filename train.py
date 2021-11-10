@@ -134,7 +134,7 @@ def main():
     )
 
     study = optuna.create_study(
-        direction="maximum" if args.mode == "max" else "min", pruner=pruner
+        direction="maximize" if args.mode == "max" else "minimize", pruner=pruner
     )
     study.optimize(
         lambda trial: objective(trial, args),
