@@ -17,8 +17,8 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     kwargs = vars(args)
 
     checkpoint = pl_callbacks.ModelCheckpoint(
-        dirpath=args.dir_path,
-        filename=args.file_name,
+        dirpath=args.dirpath,
+        filename=args.filename,
         monitor=args.monitor,
         verbose=args.verbose,
         save_last=args.save_last,
@@ -27,7 +27,7 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
         mode=args.mode,
         auto_insert_metric_name=args.auto_insert_metric_name,
         every_n_train_steps=args.every_n_train_steps,
-        train_time_interval=args.train_time_interval,
+        # train_time_interval=args.train_time_interval, # TODO
         every_n_epochs=args.every_n_epochs,
         save_on_train_epoch_end=args.save_on_train_epoch_end,
         period=args.period,
@@ -50,7 +50,7 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     callbacks = [early_stop, checkpoint]
     kwargs["callbacks"] = callbacks
 
-    trainer = pl.Trainer.from_argparse_args(**kwargs)
+    trainer = pl.Trainer.from_argparse_args(args, **kwargs)
     model = Model(args)
     dataset = Dataset(**kwargs)
 
