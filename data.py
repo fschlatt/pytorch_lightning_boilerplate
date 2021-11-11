@@ -8,14 +8,12 @@ class Dataset(pl.LightningDataModule):
         self,
         data_dir: str,
         *,
-        dims: Optional[Tuple[int, ...]] = None,
         train_batch_size: int = 1,
         eval_batch_size: int = 1,
         shuffle: bool = True
     ):
         super().__init__()
         self.data_dir = data_dir
-        self.dims = dims
         self.train_batch_size = train_batch_size
         self.eval_batch_size = eval_batch_size
         self.shuffle = shuffle
