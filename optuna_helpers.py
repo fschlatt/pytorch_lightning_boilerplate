@@ -42,7 +42,7 @@ class OptunaArg:
                 "{categorical, int, uniform, loguniform, discrete_uniform}, "
                 f"got {param}"
             )
-        func(key, *values)
+        return func(key, *values)
 
     @staticmethod
     def parse_optuna_args(trial: optuna.Trial, args: argparse.Namespace):
