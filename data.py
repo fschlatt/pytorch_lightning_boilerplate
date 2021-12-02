@@ -8,10 +8,9 @@ class Datamodule(pl.LightningDataModule):
     def __init__(
         self,
         data_dir: str,
-        *,
         train_batch_size: int = 1,
         eval_batch_size: int = 1,
-        shuffle: bool = True
+        shuffle: bool = True,
     ):
         super().__init__()
         self.data_dir = data_dir
