@@ -9,7 +9,7 @@ import optuna_helpers
 
 class Model(pl.LightningModule):
     def __init__(self, args: argparse.Namespace):
-        super(Model).__init__()
+        super().__init__()
         self.save_hyperparameters(args)
 
     def forward(self, inp: torch.Tensor):
