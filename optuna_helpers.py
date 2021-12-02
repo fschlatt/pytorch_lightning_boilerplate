@@ -84,16 +84,43 @@ class OptunaPruningCallback(callbacks.EarlyStopping):
             check_on_train_epoch_end=check_on_train_epoch_end,
         )
         self.trial = trial
+        self.pruned = False
 
-    def on_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
-        stop_training = super().on_epoch_end(trainer, pl_module)
+    def teardown(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        stage: Optional[str] = None,
+    ) -> None:
+        if self.pruned:
+            raise optuna.exceptions.TrialPruned(
+                f"Trial was pruned at step {trainer.global_step}"
+            )
 
-        epoch = trainer.current_epoch
+    def _run_early_stopping_check(self, trainer: "pl.Trainer") -> None:
+        """Checks whether the early stopping condition is met and if so tells the trainer to stop the training."""
         logs = trainer.callback_metrics
-        current_score = logs.get(self.monitor)
-        if isinstance(current_score, float):
-            self.trial.report(current_score, step=epoch)
-            if self.trial.should_prune():
-                message = "Trial was pruned at epoch {}.".format(epoch)
-                raise optuna.exceptions.TrialPruned(message)
-        return stop_training
+
+        if (
+            trainer.fast_dev_run
+            or not self._validate_condition_metric(  # disable early_stopping with fast_dev_run
+                logs
+            )
+        ):  # short circuit if metric not present
+            return
+
+        current = logs[self.monitor].squeeze()
+        should_stop, reason = self._evaluate_stopping_criteria(current)
+        step = trainer.global_step
+        should_prune = self.trial.report(current.item(), step)
+        self.pruned = should_prune
+        if should_prune:
+            reason = f"Trial was pruned at step {step}"
+
+        # stop every ddp process if any world process decides to stop
+        should_stop = trainer.training_type_plugin.reduce_boolean_decision(should_stop)
+        trainer.should_stop = trainer.should_stop or should_stop
+        if should_stop:
+            self.stopped_epoch = trainer.current_epoch
+        if reason and self.verbose:
+            self._log_info(trainer, reason)
