@@ -1,9 +1,9 @@
-from typing import Optional, Tuple
+from typing import Optional
 import torch.utils.data
 import pytorch_lightning as pl
 
 
-class Dataset(pl.LightningDataModule):
+class Datamodule(pl.LightningDataModule):
     def __init__(
         self,
         data_dir: str,
