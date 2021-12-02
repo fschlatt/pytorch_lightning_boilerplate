@@ -1,6 +1,9 @@
 import argparse
+import inspect
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Union, overload
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union, overload
+
+from pytorch_lightning.utilities import argparse as pl_argparse_utils
 
 
 class ArgumentConflictSolver:
@@ -119,3 +122,28 @@ def get_argument_names(
     for action in parser._actions:
         arguments.extend(action.option_strings)
     return arguments
+
+
+def add_argparse_args(
+    cls: Type, parser: argparse.ArgumentParser, use_argument_group: bool = True
+) -> argparse.ArgumentParser:
+
+    parser = pl_argparse_utils.add_argparse_args(
+        cls, parser, use_argument_group=use_argument_group
+    )
+
+    return parser
+
+
+def parse_arguments(
+    cls: Type, args: argparse.Namespace, ignore_args: Optional[Iterable[str]] = None
+) -> Dict[str, Any]:
+    argument_names = inspect.signature(cls).parameters
+    kwargs = {key: value for key, value in vars(args).items() if key in argument_names}
+
+    ignore_args = set(ignore_args) if ignore_args is not None else set()
+    missing = set(argument_names) - set(kwargs) - ignore_args
+    if missing:
+        raise RuntimeError(f"missing parameters {missing} for {cls.__name__}")
+
+    return kwargs

@@ -3,7 +3,6 @@ import argparse
 import optuna
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
-from pytorch_lightning.utilities import argparse as pl_argparse_utils
 
 import optuna_helpers
 import util
@@ -14,46 +13,23 @@ from model import Model
 def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
 
     args = optuna_helpers.OptunaArg.parse_optuna_args(trial, args)
-    kwargs = vars(args)
 
-    checkpoint = pl_callbacks.ModelCheckpoint(
-        dirpath=args.dirpath,
-        filename=args.filename,
-        monitor=args.monitor,
-        verbose=args.verbose,
-        save_last=args.save_last,
-        save_top_k=args.save_top_k,
-        save_weights_only=args.save_weights_only,
-        mode=args.mode,
-        auto_insert_metric_name=args.auto_insert_metric_name,
-        every_n_train_steps=args.every_n_train_steps,
-        # train_time_interval=args.train_time_interval, # TODO
-        every_n_epochs=args.every_n_epochs,
-        save_on_train_epoch_end=args.save_on_train_epoch_end,
-        period=args.period,
-        every_n_val_epochs=args.every_n_val_epochs,
+    checkpoint_kwargs = util.parse_arguments(
+        pl_callbacks.ModelCheckpoint, args, ignore_args=["train_time_interval"]
     )
+    checkpoint = pl_callbacks.ModelCheckpoint(**checkpoint_kwargs)
 
-    early_stop = optuna_helpers.PyTorchLightningPruningCallback(
-        trial,
-        monitor=args.monitor,
-        min_delta=args.min_delta,
-        patience=args.patience,
-        verbose=args.verbose,
-        mode=args.mode,
-        strict=args.strict,
-        check_finite=args.check_finite,
-        stopping_threshold=args.stopping_threshold,
-        divergence_threshold=args.divergence_threshold,
-        check_on_train_epoch_end=args.check_on_train_epoch_end,
+    pruning_kwargs = util.parse_arguments(
+        optuna_helpers.OptunaPruningCallback, args, ignore_args=["trial"]
     )
-    callbacks = [early_stop, checkpoint]
-    kwargs["callbacks"] = callbacks
+    early_stop = optuna_helpers.OptunaPruningCallback(trial, **pruning_kwargs)
 
-    trainer = pl.Trainer.from_argparse_args(args, **kwargs)
+    data_kwargs = util.parse_arguments(Datamodule, args)
+    datamodule = Datamodule(**data_kwargs)
+
+    trainer = pl.Trainer.from_argparse_args(args, callbacks=[early_stop, checkpoint])
+
     model = Model(args)
-    datamodule = Datamodule(**kwargs)
-
     trainer.fit(model, datamodule=datamodule)
 
     return early_stop.best_score
@@ -67,11 +43,11 @@ def create_argument_parser() -> argparse.ArgumentParser:
         argparse._ActionsContainer.add_argument
     )
 
-    parser = pl.Trainer.add_argparse_args(parser)
-    parser = pl_argparse_utils.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
-    parser = pl_argparse_utils.add_argparse_args(pl_callbacks.EarlyStopping, parser)
+    parser = util.add_argparse_args(pl.Trainer, parser)
+    parser = util.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
+    parser = util.add_argparse_args(pl_callbacks.EarlyStopping, parser)
+    parser = util.add_argparse_args(Datamodule, parser)
     parser = Model.add_model_specific_args(parser)
-    parser = Dataset.add_argparse_args(parser)
 
     group = parser.add_argument_group("Optuna")
     group.add_argument(
