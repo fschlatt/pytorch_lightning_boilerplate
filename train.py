@@ -45,7 +45,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     parser = util.add_argparse_args(pl.Trainer, parser)
     parser = util.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
-    parser = util.add_argparse_args(pl_callbacks.EarlyStopping, parser)
+    parser = util.add_argparse_args(optuna_helpers.OptunaPruningCallback, parser)
     parser = util.add_argparse_args(Datamodule, parser)
     parser = Model.add_model_specific_args(parser)
 
