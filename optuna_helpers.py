@@ -56,7 +56,7 @@ class OptunaArg:
         return args
 
 
-class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
+class OptunaPruningCallback(callbacks.EarlyStopping):
     def __init__(
         self,
         trial: optuna.Trial,
@@ -71,7 +71,7 @@ class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
         divergence_threshold: Optional[float] = None,
         check_on_train_epoch_end: Optional[bool] = None,
     ):
-        super(PyTorchLightningPruningCallback, self).__init__(
+        super(OptunaPruningCallback, self).__init__(
             monitor=monitor,
             min_delta=min_delta,
             patience=patience,
@@ -83,9 +83,7 @@ class PyTorchLightningPruningCallback(callbacks.EarlyStopping):
             divergence_threshold=divergence_threshold,
             check_on_train_epoch_end=check_on_train_epoch_end,
         )
-
         self.trial = trial
-        self.monitor = monitor
 
     def on_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         stop_training = super().on_epoch_end(trainer, pl_module)
