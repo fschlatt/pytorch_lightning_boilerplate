@@ -7,7 +7,7 @@ from pytorch_lightning.utilities import argparse as pl_argparse_utils
 
 import optuna_helpers
 import util
-from data import Dataset
+from data import Datamodule
 from model import Model
 
 
@@ -52,9 +52,9 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
 
     trainer = pl.Trainer.from_argparse_args(args, **kwargs)
     model = Model(args)
-    dataset = Dataset(**kwargs)
+    datamodule = Datamodule(**kwargs)
 
-    trainer.fit(model, datamodule=dataset)
+    trainer.fit(model, datamodule=datamodule)
 
     return early_stop.best_score
 
