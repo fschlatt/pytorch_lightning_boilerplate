@@ -112,7 +112,8 @@ class OptunaPruningCallback(callbacks.EarlyStopping):
         current = logs[self.monitor].squeeze()
         should_stop, reason = self._evaluate_stopping_criteria(current)
         step = trainer.global_step
-        should_prune = self.trial.report(current.item(), step)
+        self.trial.report(current.item(), step)
+        should_prune = self.trial.should_prune()
         self.pruned = should_prune
         if should_prune:
             reason = f"Trial was pruned at step {step}"
