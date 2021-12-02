@@ -1,9 +1,10 @@
 import argparse
 
-import optuna_helpers
 import pytorch_lightning as pl
-import torch.utils.data
 import torch
+import torch.utils.data
+
+import optuna_helpers
 
 
 class Model(pl.LightningModule):
