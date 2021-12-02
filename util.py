@@ -138,7 +138,14 @@ def add_argparse_args(
 def parse_arguments(
     cls: Type, args: argparse.Namespace, ignore_args: Optional[Iterable[str]] = None
 ) -> Dict[str, Any]:
-    argument_names = inspect.signature(cls).parameters
+    ignore_args = set(ignore_args) if ignore_args is not None else set()
+    ignore_args = ignore_args.union(["self", "args", "kwargs"])
+    argument_names = []
+    for symbol in (cls, cls.__init__):
+        argument_names = set(inspect.signature(symbol).parameters) - ignore_args
+        if argument_names:
+            break
+
     kwargs = {key: value for key, value in vars(args).items() if key in argument_names}
 
     ignore_args = set(ignore_args) if ignore_args is not None else set()
