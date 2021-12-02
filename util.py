@@ -142,6 +142,7 @@ def parse_arguments(
     kwargs = {key: value for key, value in vars(args).items() if key in argument_names}
 
     ignore_args = set(ignore_args) if ignore_args is not None else set()
+    ignore_args = ignore_args.union(["self", "args", "kwargs"])
     missing = set(argument_names) - set(kwargs) - ignore_args
     if missing:
         raise RuntimeError(f"missing parameters {missing} for {cls.__name__}")
