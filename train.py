@@ -83,7 +83,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
     conflict_tracker.resolve_conflicting_args(
         group,
         {
-            "--monitor": "quantity to monitor for early stopping and checkpointing",
+            "--monitor": "quantity to monitor for early stopping, checkpointing "
+            "and lr scheduling",
             "--verbose": "verbosity mode, default False",
             "--mode": (
                 "one of {min, max}, dictates if early stopping and checkpointing "

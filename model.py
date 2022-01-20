@@ -31,7 +31,17 @@ class Model(pl.LightningModule):
         pass
 
     def configure_optimizers(self):
-        return [torch.optim.Adam(self.parameters(), lr=self.hparams.lr)]
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        scheduler = None
+        scheduler_config = {
+            "interval": self.hparams.lr_interval,
+            "frequency": self.hparams.lr_frequency,
+            "monitor": self.hparams.monitor,
+        }
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, **scheduler_config},
+        }
 
     @classmethod
     def add_model_specific_args(cls, parser: argparse.ArgumentParser):
@@ -41,6 +51,19 @@ class Model(pl.LightningModule):
 
         group.add_argument(
             "--lr", type=optuna_helpers.OptunaArg, nargs="+", default=1e-3
+        )
+        group.add_argument(
+            "--lr_interval",
+            type=str,
+            default="epoch",
+            choices=("epoch", "batch"),
+            help="interval for calling lr scheduler",
+        )
+        group.add_argument(
+            "--lr_frequency",
+            type=int,
+            default=1,
+            help="frequency for calling lr scheduler",
         )
 
         return parser
