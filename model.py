@@ -49,6 +49,9 @@ class Model(pl.LightningModule):
 
         group = parser.add_argument_group(f"{cls.__module__}.{cls.__qualname__}")
 
+        group = parser.add_argument_group(
+            f"{cls.__module__}.{cls.__qualname__}.Optimizer"
+        )
         group.add_argument(
             "--lr", type=optuna_helpers.OptunaArg, nargs="+", default=1e-3
         )
