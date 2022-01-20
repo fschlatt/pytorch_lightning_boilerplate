@@ -27,7 +27,12 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
     data_kwargs = util.parse_arguments(Datamodule, args)
     datamodule = Datamodule(**data_kwargs)
 
-    trainer = pl.Trainer.from_argparse_args(args, callbacks=[early_stop, checkpoint])
+    callbacks = [early_stop, checkpoint]
+    if args.monitor_gpu_stats:
+        device_stats = pl_callbacks.DeviceStatsMonitor()
+        callbacks.append(device_stats)
+
+    trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks)
 
     model = Model(args)
     trainer.fit(model, datamodule=datamodule)
@@ -44,6 +49,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser = util.add_argparse_args(pl.Trainer, parser)
+    group = parser.add_argument_group("Monitor")
+    group.add_argument(
+        "--monitor_gpu_stats",
+        action="store_true",
+        dest="monitor_gpu_stats",
+        help="toggle to monitor gpu status in logger",
+    )
+
     parser = util.add_argparse_args(pl_callbacks.ModelCheckpoint, parser)
     parser = util.add_argparse_args(optuna_helpers.OptunaPruningCallback, parser)
     parser = util.add_argparse_args(Datamodule, parser)
@@ -65,7 +78,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--pruning",
         dest="pruning",
         action="store_true",
-        help="if true activates experiment pruning, default false",
+        help="if toggled activates experiment pruning",
     )
     group.add_argument(
         "--timeout",
@@ -84,7 +97,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         group,
         {
             "--monitor": "quantity to monitor for early stopping, checkpointing "
-            "and lr scheduling",
+            "and lr scheduling, default None",
             "--verbose": "verbosity mode, default False",
             "--mode": (
                 "one of {min, max}, dictates if early stopping and checkpointing "
