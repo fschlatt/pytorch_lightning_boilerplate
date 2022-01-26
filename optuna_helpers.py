@@ -68,7 +68,7 @@ class OptunaArg:
         return sample
 
     @staticmethod
-    def parse_optuna_args(
+    def suggest_optuna_args(
         trial: optuna.Trial, args: argparse.Namespace
     ) -> argparse.Namespace:
         args_copy = argparse.Namespace(**vars(args))

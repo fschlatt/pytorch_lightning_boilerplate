@@ -12,7 +12,7 @@ from model import Model
 
 def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
 
-    args = optuna_helpers.OptunaArg.parse_optuna_args(trial, args)
+    args = optuna_helpers.OptunaArg.suggest_optuna_args(trial, args)
 
     checkpoint_kwargs = util.parse_arguments(
         pl_callbacks.ModelCheckpoint, args, ignore_args=["train_time_interval"]
