@@ -1,13 +1,27 @@
 import argparse
-from typing import Any, List, Optional
+import enum
+from collections.abc import Iterable
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import optuna
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks
 
 
-class OptunaArg:
-    def __init__(self, value: Any):
+class OptunaArgumentError(Exception):
+    pass
+
+
+class OptunaKeyword(enum.Enum):
+    CATEGORICAL = "categorical"
+    INT = "int"
+    UNIFORM = "uniform"
+    LOGUNIFORM = "loguniform"
+    DISCRETE_UNIFORM = "discrete_uniform"
+
+
+class OptunaValue:
+    def __init__(self, value: str):
         try:
             self.value = int(value)
         except ValueError:
@@ -22,38 +36,75 @@ class OptunaArg:
     def __repr__(self):
         return str(self.value)
 
-    @staticmethod
-    def parse(trial: optuna.Trial, key: str, args: List["OptunaArg"]):
-        values = [arg.value for arg in args]
-        param, *values = values
-        if param == "categorical":
-            func = trial.suggest_categorical
-        elif param == "int":
-            func = trial.suggest_int
-        elif param == "uniform":
-            func = trial.suggest_uniform
-        elif param == "loguniform":
-            func = trial.suggest_loguniform
-        elif param == "discrete_uniform":
-            func = trial.suggest_discrete_uniform
+
+class OptunaArg:
+    def __init__(self, args: List[Union[OptunaKeyword, OptunaValue]]):
+        self.value = None
+        self.keyword = None
+        self.values = None
+        error_message = (
+            f"invalid optuna argument configuration, expected either one keyword "
+            f"and multiple value or single value, got {list(type(arg) for arg in args)}"
+        )
+        if len(args) == 1:
+            if not isinstance(args[0], OptunaValue):
+                raise OptunaArgumentError(error_message)
+            self.value = args[0].value
         else:
-            raise ValueError(
-                "invalid optuna parameter type, expected one of "
-                "{categorical, int, uniform, loguniform, discrete_uniform}, "
-                f"got {param}"
-            )
-        return func(key, *values)
+            keyword, *values = args
+            if not isinstance(keyword, OptunaKeyword):
+                raise OptunaArgumentError(error_message)
+            if not all(isinstance(value, OptunaValue) for value in values):
+                raise OptunaArgumentError(error_message)
+            self.keyword = keyword
+            self.values = [value.value for value in values]
+
+    def sample(self, trial: optuna.Trial, key: str) -> Union[str, int, float]:
+        if self.value is not None:
+            return self.value
+        assert self.keyword is not None and self.values is not None
+        func = trial.__getattribute__(f"suggest_{self.keyword.value}")
+        sample = func(key, *self.values)
+        return sample
 
     @staticmethod
-    def parse_optuna_args(trial: optuna.Trial, args: argparse.Namespace):
-        args = argparse.Namespace(**vars(args))
-        args_dict = vars(args)
-        for key, args_list in args_dict.items():
-            if isinstance(args_list, list):
-                if args_list and all(isinstance(arg, OptunaArg) for arg in args_list):
-                    sampled_arg = OptunaArg.parse(trial, key, args_list)
-                    args_dict[key] = sampled_arg
-        return args
+    def parse_optuna_args(
+        trial: optuna.Trial, args: argparse.Namespace
+    ) -> argparse.Namespace:
+        args_copy = argparse.Namespace(**vars(args))
+        for key, argument in vars(args).items():
+            if isinstance(argument, OptunaArg):
+                args_copy.__setattr__(key, argument.sample(trial, key))
+        return args_copy
+
+    @staticmethod
+    def parse(value: Any) -> Union[OptunaKeyword, OptunaValue]:
+        try:
+            return OptunaKeyword(value)
+        except ValueError:
+            return OptunaValue(value)
+
+
+class OptunaArgumentParser(argparse.ArgumentParser):
+    def parse_known_args(
+        self,
+        args: Optional[Sequence[str]] = None,
+        namespace: Optional[argparse.Namespace] = None,
+    ) -> Tuple[argparse.Namespace, List[str]]:
+        namespace, args = super().parse_known_args(args, namespace)
+        namespace = self.parse_optuna_args(namespace)
+        return namespace, args
+
+    @staticmethod
+    def parse_optuna_args(namespace: argparse.Namespace) -> argparse.Namespace:
+        for key, arg in vars(namespace).items():
+            if isinstance(arg, (OptunaKeyword, OptunaValue)):
+                arg = [arg]
+            if isinstance(arg, Iterable) and all(
+                isinstance(_arg, (OptunaKeyword, OptunaValue)) for _arg in arg
+            ):
+                namespace.__setattr__(key, OptunaArg(arg))
+        return namespace
 
 
 class OptunaPruningCallback(callbacks.EarlyStopping):

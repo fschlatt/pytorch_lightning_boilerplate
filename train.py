@@ -41,7 +41,7 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
+    parser = optuna_helpers.OptunaArgumentParser()
 
     conflict_tracker = util.ArgumentConflictSolver()
     argparse._ActionsContainer.add_argument = conflict_tracker.catch_conflicting_args(

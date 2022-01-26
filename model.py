@@ -45,15 +45,18 @@ class Model(pl.LightningModule):
 
     @classmethod
     def add_model_specific_args(cls, parser: argparse.ArgumentParser):
-        parser = argparse.ArgumentParser(parents=[parser], add_help=False)
-
         group = parser.add_argument_group(f"{cls.__module__}.{cls.__qualname__}")
+        # add model specific arguments here arguments
 
         group = parser.add_argument_group(
             f"{cls.__module__}.{cls.__qualname__}.Optimizer"
         )
         group.add_argument(
-            "--lr", type=optuna_helpers.OptunaArg, nargs="+", default=1e-3
+            "--learning_rate",
+            type=optuna_helpers.OptunaArg.parse,
+            nargs="+",
+            default=1e-3,
+            help="learning rate for model",
         )
         group.add_argument(
             "--lr_interval",
