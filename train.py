@@ -14,6 +14,8 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
 
     args = optuna_helpers.OptunaArg.suggest_optuna_args(trial, args)
 
+    pl.seed_everything(args.seed)
+
     checkpoint_kwargs = util.parse_arguments(
         pl_callbacks.ModelCheckpoint, args, ignore_args=["train_time_interval"]
     )
@@ -93,6 +95,9 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
 
     group = parser.add_argument_group("Global")
+    group.add_argument(
+        "--seed", type=int, default=None, help="seed for random number generators"
+    )
     conflict_tracker.resolve_conflicting_args(
         group,
         {
