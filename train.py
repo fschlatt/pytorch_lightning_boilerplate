@@ -35,9 +35,13 @@ def objective(trial: optuna.Trial, args: argparse.Namespace) -> float:
         callbacks.append(device_stats)
 
     trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks)
-
     model = Model(args)
-    trainer.fit(model, datamodule=datamodule)
+
+    fit_kwargs = dict(datamodule=datamodule)
+    if args.resume_checkpoint is not None:
+        fit_kwargs["ckpt_path"] = args.resume_checkpoint
+
+    trainer.fit(model, **fit_kwargs)
 
     return early_stop.best_score
 
@@ -98,6 +102,15 @@ def create_argument_parser() -> argparse.ArgumentParser:
     group.add_argument(
         "--seed", type=int, default=None, help="seed for random number generators"
     )
+
+    group = parser.add_argument_group("Resume")
+    group.add_argument(
+        "--resume_checkpoint",
+        type=str,
+        default=None,
+        help="path to checkpoint to resume for training",
+    )
+
     conflict_tracker.resolve_conflicting_args(
         group,
         {
