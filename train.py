@@ -80,7 +80,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
             " such as Ctrl+C or SIGTERM, default 1"
         ),
     )
-    parser.add_argument(
+    group.add_argument(
         "--pruning",
         dest="pruning",
         action="store_true",
