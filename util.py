@@ -53,23 +53,17 @@ class ArgumentConflictSolver:
             choices = [action.choices for action in actions]
             const = [action.const for action in actions]
             dest = [action.dest for action in actions]
-            default = [action.default for action in actions]
+            default = [
+                None if action.default == inspect._empty else action.default
+                for action in actions
+            ]
             metavar = [action.metavar for action in actions]
             nargs = [action.nargs for action in actions]
-            required = [action.required for action in actions]
+            required = any(action.required for action in actions)
             types = [action.type for action in actions]
             if all(
                 same(variables)
-                for variables in (
-                    choices,
-                    const,
-                    dest,
-                    default,
-                    metavar,
-                    nargs,
-                    required,
-                    types,
-                )
+                for variables in (choices, const, dest, default, metavar, nargs, types)
             ):
                 parser.add_argument(
                     option_string,
@@ -79,7 +73,7 @@ class ArgumentConflictSolver:
                     default=default[0],
                     type=types[0],
                     choices=choices[0],
-                    required=required[0],
+                    required=required,
                     help=help_strings.get(option_string, ""),
                 )
         return parser
