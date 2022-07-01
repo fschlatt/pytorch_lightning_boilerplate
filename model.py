@@ -3,8 +3,22 @@ import argparse
 import pytorch_lightning as pl
 import torch
 import torch.utils.data
+import torchmetrics
 
 import optuna_helpers
+
+
+class LossTensor(torchmetrics.Metric):
+    def __init__(self) -> None:
+        self.add_state("loss", torch.tensor(0))
+        self.add_state("counter", torch.tensor(0))
+
+    def update(self, loss: torch.Tensor) -> None:
+        self.loss: torch.Tensor = self.loss + loss
+        self.counter: torch.Tensor = self.counter + 1
+
+    def compute(self) -> torch.Tensor:
+        return self.loss / self.counter
 
 
 class Model(pl.LightningModule):
@@ -13,10 +27,19 @@ class Model(pl.LightningModule):
         self.save_hyperparameters(args)
 
     def forward(self, inp: torch.Tensor):
-        raise NotImplementedError()
+        ...
+
+    def loss(self, output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        ...
 
     def training_step(self, data_batch, batch_i):
-        pass
+        loss = self.loss()
+
+        # logging over accumulate grad batches
+        self.loss_metric(loss)
+        if not self.trainer.fit_loop.should_accumulate():
+            self.log("loss", self.loss_metric.compute())
+            self.loss_metric.reset()
 
     def validation_step(self, data_batch, batch_i):
         pass
