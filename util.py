@@ -49,8 +49,10 @@ class ArgumentConflictSolver:
         def same(elems: Iterable) -> bool:
             return len(set(elems)) <= 1
 
+        group = parser.add_argument_group("Global")
+
         for option_string, actions in self.conflicting_args.items():
-            choices = [action.choices for action in actions]
+            choices = [tuple(action.choices) for action in actions]
             const = [action.const for action in actions]
             dest = [action.dest for action in actions]
             default = [
@@ -65,7 +67,7 @@ class ArgumentConflictSolver:
                 same(variables)
                 for variables in (choices, const, dest, default, metavar, nargs, types)
             ):
-                parser.add_argument(
+                group.add_argument(
                     option_string,
                     nargs=nargs[0],
                     const=const[0],
